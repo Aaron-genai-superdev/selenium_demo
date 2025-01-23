@@ -65,6 +65,7 @@ AutomationWorker类:
 """
 
 import os
+import shutil
 import uuid
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -110,10 +111,15 @@ class AutomationWorker:
         options.add_argument("--headless")  # 无界面模式
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        self.driver = webdriver.Chrome(service=service, options=options)
-        self.driver.maximize_window()
-        self.logger.info("浏览器初始化完成")
-        self.logger.info(f"为账号 {self.username} 设置了用户数据目录: {self.user_data_dir}")
+        options.add_argument("--disable-gpu")  # 避免部分无头模式问题
+        try:
+            self.driver = webdriver.Chrome(service=service, options=options)
+            self.driver.maximize_window()
+            self.logger.info(f"浏览器初始化完成，为账号 {self.username} 设置了用户数据目录: {self.user_data_dir}")
+        except Exception as e:
+            self.logger.error(f"初始化浏览器时出错: {e}")
+            self.cleanup()
+            raise
     def cleanup(self):
         """清理临时的用户数据目录"""
         try:
