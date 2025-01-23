@@ -1,3 +1,11 @@
 venv/
 *.log
 __pycache__/
+# 忽略所有文件
+*
+
+# 排除忽略规则的文件
+!Multi-threaded Selenium Automation_v8.py
+
+# 确保 .gitignore 本身被跟踪
+!.gitignore
