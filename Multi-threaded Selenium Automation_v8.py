@@ -312,37 +312,70 @@ class AutomationWorker:
         return False
 
     def login(self):
-        """执行登录流程"""
+        """登录流程"""
         self.logger.info("开始登录流程")
-        if self.close_dialog():
-            self.logger.info("成功关闭初始弹窗")
-        # Add debug check here
-        self.wait_for_login_button()
-        sign_in_locators = [
-            (By.XPATH, "//div[contains(., 'Sign in') and contains(@class, 'baseFontColor left')]"),
-            (By.CSS_SELECTOR, ".baseFontColor.left"),
-            (By.LINK_TEXT, "Sign in"),
-            (By.PARTIAL_LINK_TEXT, "Sign")
+
+        # 直接导航到登录页面
+        self.driver.get("https://www.mlion.ai/#/login")
+        self.random_delay(3, 5)
+
+        # 尝试不同的选择器
+        sign_in_selectors = [
+            "div.func-icon.login",
+            ".baseFontColor.left",
+            "div.login",
+            "div.func-icon.login svg",
+            "//div[contains(@class, 'login')]",
+            "//div[contains(text(), 'Sign in')]",
         ]
 
-        for locator in sign_in_locators:
-            if self.wait_and_click(locator):
-                self.logger.info("成功点击 'Sign in' 按钮")
-                self.random_delay(2, 3)
+        for selector in sign_in_selectors:
+            try:
+                if selector.startswith("//"):
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                else:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
 
-                username_input = self.wait_for_element((By.XPATH, "//input[@placeholder='Email']"))
-                password_input = self.wait_for_element((By.XPATH, "//input[@placeholder='Password']"))
+                self.logger.info(f"找到 {len(elements)} 个元素匹配 {selector}")
 
-                if username_input and password_input:
-                    username_input.send_keys(self.username)
-                    password_input.send_keys(self.password)
-                    self.logger.info("用户名和密码已输入")
+                for element in elements:
+                    if element.is_displayed():
+                        try:
+                            self.driver.execute_script("arguments[0].click();", element)
+                            self.logger.info(f"成功点击登录按钮")
+                            self.random_delay(2, 3)
 
-                    if self.wait_and_click((By.XPATH, "//button[span[text()='Login']]")):
-                        self.logger.info("成功提交登录信息")
-                        self.random_delay(4, 6)
-                        return True
+                            # 处理登录表单
+                            username_input = WebDriverWait(self.driver, 10).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Email']"))
+                            )
+                            password_input = WebDriverWait(self.driver, 10).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Password']"))
+                            )
 
+                            self.driver.execute_script('arguments[0].value = arguments[1];', username_input,
+                                                       self.username)
+                            self.driver.execute_script('arguments[0].value = arguments[1];', password_input,
+                                                       self.password)
+                            self.logger.info("用户名和密码已输入")
+
+                            login_button = WebDriverWait(self.driver, 10).until(
+                                EC.presence_of_element_located((By.XPATH, "//button[span[text()='Login']]"))
+                            )
+                            self.driver.execute_script("arguments[0].click();", login_button)
+                            self.logger.info("成功提交登录信息")
+                            self.random_delay(4, 6)
+                            return True
+
+                        except Exception as e:
+                            self.logger.error(f"点击登录按钮失败: {e}")
+                            continue
+
+            except Exception as e:
+                self.logger.debug(f"使用选择器 {selector} 失败: {e}")
+                continue
+
+        self.logger.error("找不到登录按钮")
         return False
 
     def handle_login_form(self):
