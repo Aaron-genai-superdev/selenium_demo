@@ -256,73 +256,65 @@ class AutomationWorker:
         return False
 
     def login(self):
-        """改进的登录流程"""
+        """执行登录流程"""
         self.logger.info("开始登录流程")
-
-        # 直接导航到登录页面
-        self.driver.get("https://www.mlion.ai/#/login")
-        self.random_delay(3, 5)
-
-        # 检查并关闭初始弹窗
         if self.close_dialog():
             self.logger.info("成功关闭初始弹窗")
 
+        sign_in_locators = [
+            (By.XPATH, "//div[contains(., 'Sign in') and contains(@class, 'baseFontColor left')]"),
+            (By.CSS_SELECTOR, ".baseFontColor.left"),
+            (By.LINK_TEXT, "Sign in"),
+            (By.PARTIAL_LINK_TEXT, "Sign")
+        ]
+
+        for locator in sign_in_locators:
+            if self.wait_and_click(locator):
+                self.logger.info("成功点击 'Sign in' 按钮")
+                self.random_delay(2, 3)
+
+                username_input = self.wait_for_element((By.XPATH, "//input[@placeholder='Email']"))
+                password_input = self.wait_for_element((By.XPATH, "//input[@placeholder='Password']"))
+
+                if username_input and password_input:
+                    username_input.send_keys(self.username)
+                    password_input.send_keys(self.password)
+                    self.logger.info("用户名和密码已输入")
+
+                    if self.wait_and_click((By.XPATH, "//button[span[text()='Login']]")):
+                        self.logger.info("成功提交登录信息")
+                        self.random_delay(4, 6)
+                        return True
+
+        return False
+
+    def handle_login_form(self):
+        """处理登录表单"""
         try:
-            # 等待用户名和密码输入框
+            # 等待并填写登录表单
             username_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Email']"))
             )
-            password_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Password']"))
-            )
+            password_input = self.driver.find_element(By.CSS_SELECTOR, "input[placeholder='Password']")
 
-            # 使用JavaScript填写表单
-            self.driver.execute_script(
-                'arguments[0].value = arguments[1];',
-                username_input,
-                self.username
-            )
-            self.driver.execute_script(
-                'arguments[0].value = arguments[1];',
-                password_input,
-                self.password
-            )
+            # 使用JavaScript填写
+            self.driver.execute_script('arguments[0].value = arguments[1];', username_input, self.username)
+            self.driver.execute_script('arguments[0].value = arguments[1];', password_input, self.password)
 
-            self.logger.info("用户名和密码已输入")
-            self.random_delay(1, 2)
-
-            # 关闭可能出现的弹窗
-            self.close_dialog()
-
-            # 查找并点击登录按钮
+            # 点击登录按钮
             login_button = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//button[span[contains(text(), 'Login')]]"))
+                EC.element_to_be_clickable((By.XPATH, "//button[span[contains(text(), 'Login')]]"))
             )
             self.driver.execute_script("arguments[0].click();", login_button)
-            self.logger.info("成功提交登录信息")
 
-            # 等待登录成功，期间处理可能的弹窗
-            self.random_delay(2, 3)
-            self.close_dialog()
-            self.random_delay(2, 3)
-
-            # 验证是否登录成功
-            try:
-                WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "div.pointDisplay"))
-                )
-                self.logger.info("登录成功")
-                return True
-            except:
-                self.logger.error("未检测到积分显示，登录可能失败")
-                self.save_debug_info("login_failure")
-                return False
-
+            # 等待登录成功
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div.pointDisplay"))
+            )
+            return True
         except Exception as e:
-            self.logger.error(f"登录过程出错: {e}")
-            self.save_debug_info("login_error")
+            self.logger.error(f"登录表单处理失败: {e}")
             return False
-
     def get_points(self):
         """获取当前积分"""
         try:
