@@ -139,12 +139,6 @@ class AutomationWorker:
         time.sleep(delay)
         return delay
 
-    def setup_driver(self):
-        """初始化 ChromeDriver"""
-        service = Service("/usr/local/bin/chromedriver")
-        self.driver = webdriver.Chrome(service=service)
-        self.driver.maximize_window()
-        self.logger.info("浏览器初始化完成")
 
     def save_debug_info(self, step_name):
         """保存页面截图和部分页面源代码"""
