@@ -112,17 +112,24 @@ class AutomationWorker:
         options.add_argument("--headless")  # 无界面模式
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument('--window-size=1920,1080')
         options.add_argument("--disable-gpu")  # 避免部分无头模式问题
         options.add_argument('--start-maximized')
         options.add_argument('--force-device-scale-factor=1')
         options.add_argument('--hide-scrollbars')
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument('--lang=en-US')
         # 打印 options 配置
         print("ChromeOptions:", options.arguments)
+        # 设置超时时间
+        options.page_load_timeout = 60
+        options.script_timeout = 30
         # 添加调试日志
         self.logger.info("ChromeDriver Service 和 Options 已设置")
         try:
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.maximize_window()
+            self.driver.implicitly_wait(10)
             self.logger.info(f"浏览器初始化完成，为账号 {self.username} 设置了用户数据目录: {self.user_data_dir}")
         except Exception as e:
             self.logger.error(f"初始化浏览器时出错: {e}")
@@ -213,10 +220,11 @@ class AutomationWorker:
                 element = WebDriverWait(self.driver, timeout).until(
                     EC.presence_of_element_located(locator)
                 )
-
+                self.random_delay(2, 3)
                 # 使用JavaScript确保元素在视图中
                 self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
                 self.random_delay(1, 2)
+
 
                 # 尝试JavaScript点击
                 self.driver.execute_script("arguments[0].click();", element)
@@ -226,7 +234,7 @@ class AutomationWorker:
             except Exception as e:
                 self.logger.warning(f"点击失败，第 {attempt + 1} 次尝试: {e}")
                 if attempt < retries - 1:
-                    self.random_delay(2, 3)
+                    self.random_delay(sleep_between_retries, sleep_between_retries + 2)
                     self.driver.execute_script("window.scrollTo(0, 0);")  # 重置滚动位置
 
         return False
