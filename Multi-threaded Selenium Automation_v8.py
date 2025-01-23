@@ -210,32 +210,47 @@ class AutomationWorker:
             self.logger.error(f"关闭弹窗过程出错: {e}")
             return False
 
-    def wait_and_click(self, locator, timeout=10, retries=3, sleep_between_retries=2):
-        """改进的等待点击操作"""
+    def save_page_source_and_screenshot(self):
+        """保存页面源码和截图用于调试"""
+        timestamp = int(time.time())
+        try:
+            self.driver.save_screenshot(f"debug_{timestamp}.png")
+            with open(f"page_source_{timestamp}.html", "w", encoding="utf-8") as f:
+                f.write(self.driver.page_source)
+        except Exception as e:
+            self.logger.error(f"保存调试信息失败: {e}")
+    def wait_and_click(self, locator, timeout=20, retries=3, sleep_between_retries=5):
+        """改进的等待和点击方法"""
         for attempt in range(retries):
             try:
-                self.close_dialog()
+                self.save_page_source_and_screenshot()  # 保存调试信息
 
-                # 等待元素存在
+                # 检查页面状态
+                page_state = self.driver.execute_script('return document.readyState;')
+                self.logger.info(f"页面状态: {page_state}")
+
+                # 等待元素
                 element = WebDriverWait(self.driver, timeout).until(
                     EC.presence_of_element_located(locator)
                 )
+
+                # 打印元素信息
+                element_html = element.get_attribute('outerHTML')
+                self.logger.info(f"找到元素: {element_html}")
+
+                # 确保元素在视图中
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
                 self.random_delay(2, 3)
-                # 使用JavaScript确保元素在视图中
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                self.random_delay(1, 2)
 
-
-                # 尝试JavaScript点击
-                self.driver.execute_script("arguments[0].click();", element)
-                self.logger.info(f"通过JavaScript成功点击元素")
-                return True
-
+                # 尝试点击
+                if element.is_displayed():
+                    self.driver.execute_script("arguments[0].click();", element)
+                    self.random_delay(2, 3)
+                    return True
             except Exception as e:
-                self.logger.warning(f"点击失败，第 {attempt + 1} 次尝试: {e}")
+                self.logger.warning(f"第 {attempt + 1} 次点击尝试失败: {e}")
                 if attempt < retries - 1:
                     self.random_delay(sleep_between_retries, sleep_between_retries + 2)
-                    self.driver.execute_script("window.scrollTo(0, 0);")  # 重置滚动位置
 
         return False
 
