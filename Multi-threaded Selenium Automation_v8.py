@@ -113,6 +113,8 @@ class AutomationWorker:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")  # 避免部分无头模式问题
+        # 打印 options 配置
+        print("ChromeOptions:", options.arguments)
         try:
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.maximize_window()
