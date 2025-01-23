@@ -115,6 +115,8 @@ class AutomationWorker:
         options.add_argument("--disable-gpu")  # 避免部分无头模式问题
         # 打印 options 配置
         print("ChromeOptions:", options.arguments)
+        # 添加调试日志
+        self.logger.info("ChromeDriver Service 和 Options 已设置")
         try:
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.maximize_window()
@@ -490,8 +492,12 @@ class AutomationWorker:
 
     def run_automation(self):
         """运行自动化流程"""
+        self.logger.info("开始自动化流程")
         try:
+            self.logger.info("调用 setup_driver")
             self.setup_driver()
+            self.logger.info("Driver 初始化完成")
+            self.logger.info("Driver 初始化完成")
             self.driver.get("https://www.mlion.ai")
             self.logger.info("成功打开网站")
             self.random_delay(4, 6)
