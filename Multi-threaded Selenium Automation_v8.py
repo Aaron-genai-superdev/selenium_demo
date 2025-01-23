@@ -108,6 +108,7 @@ class AutomationWorker:
         service = Service("/usr/local/bin/chromedriver")
         options = webdriver.ChromeOptions()
         # options.add_argument(f"--user-data-dir={self.user_data_dir}")  # 唯一的用户数据目录
+        options.add_argument("--disable-extensions")  # 禁用扩展，减少目录依赖
         options.add_argument("--headless")  # 无界面模式
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
