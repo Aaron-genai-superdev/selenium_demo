@@ -113,6 +113,9 @@ class AutomationWorker:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")  # 避免部分无头模式问题
+        options.add_argument('--start-maximized')
+        options.add_argument('--force-device-scale-factor=1')
+        options.add_argument('--hide-scrollbars')
         # 打印 options 配置
         print("ChromeOptions:", options.arguments)
         # 添加调试日志
@@ -154,8 +157,13 @@ class AutomationWorker:
             self.logger.error(f"保存调试信息失败：{e}")
 
     def close_dialog(self, timeout=10):
-        """关闭任何可见的对话框"""
+        """改进的弹窗关闭处理"""
         try:
+            # 等待页面加载完成
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: d.execute_script('return document.readyState') == 'complete'
+            )
+
             close_button_selectors = [
                 "svg.icon.close-img",
                 "svg.icon.close",
@@ -167,37 +175,60 @@ class AutomationWorker:
 
             for selector in close_button_selectors:
                 try:
-                    close_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for button in close_buttons:
-                        if button.is_displayed():
-                            button.click()
-                            self.random_delay()
-                            self.logger.info(f"成功点击关闭按钮: {selector}")
-                            return True
-                except:
+                    # 使用JavaScript检查元素是否存在和可见
+                    is_visible = self.driver.execute_script("""
+                        const element = document.querySelector(arguments[0]);
+                        return element && 
+                               window.getComputedStyle(element).display !== 'none' && 
+                               window.getComputedStyle(element).visibility !== 'hidden' &&
+                               element.offsetParent !== null;
+                    """, selector)
+
+                    if is_visible:
+                        # 直接使用JavaScript点击
+                        self.driver.execute_script("""
+                            const element = document.querySelector(arguments[0]);
+                            element.click();
+                        """, selector)
+
+                        self.logger.info(f"通过JavaScript成功关闭弹窗: {selector}")
+                        self.random_delay(1, 2)
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"尝试关闭 {selector} 失败: {str(e)}")
                     continue
+
             return False
         except Exception as e:
-            self.logger.error(f"关闭对话框时出错: {e}")
+            self.logger.error(f"关闭弹窗过程出错: {e}")
             return False
 
     def wait_and_click(self, locator, timeout=10, retries=3, sleep_between_retries=2):
-        """等待元素可点击并进行点击，带重试机制"""
+        """改进的等待点击操作"""
         for attempt in range(retries):
             try:
                 self.close_dialog()
+
+                # 等待元素存在
                 element = WebDriverWait(self.driver, timeout).until(
-                    EC.element_to_be_clickable(locator)
+                    EC.presence_of_element_located(locator)
                 )
-                self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
-                self.random_delay()
-                self.close_dialog()
-                element.click()
+
+                # 使用JavaScript确保元素在视图中
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+                self.random_delay(1, 2)
+
+                # 尝试JavaScript点击
+                self.driver.execute_script("arguments[0].click();", element)
+                self.logger.info(f"通过JavaScript成功点击元素")
                 return True
+
             except Exception as e:
                 self.logger.warning(f"点击失败，第 {attempt + 1} 次尝试: {e}")
                 if attempt < retries - 1:
-                    time.sleep(sleep_between_retries)
+                    self.random_delay(2, 3)
+                    self.driver.execute_script("window.scrollTo(0, 0);")  # 重置滚动位置
+
         return False
 
     def wait_for_element(self, locator, timeout=10, retries=3):
