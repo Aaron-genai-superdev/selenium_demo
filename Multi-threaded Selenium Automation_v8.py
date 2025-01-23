@@ -210,6 +210,39 @@ class AutomationWorker:
             self.logger.error(f"关闭弹窗过程出错: {e}")
             return False
 
+    def wait_for_login_button(self):
+        """等待并检查登录按钮状态"""
+        try:
+            # Capture page source before attempting to find button
+            with open("page_before.html", "w", encoding="utf-8") as f:
+                f.write(self.driver.page_source)
+
+            # Check all possible sign-in button selectors
+            selectors = [
+                "div.baseFontColor.left",
+                "//div[contains(., 'Sign in')]",
+                "//div[contains(@class, 'baseFontColor') and contains(., 'Sign in')]"
+            ]
+
+            for selector in selectors:
+                try:
+                    if selector.startswith("//"):
+                        elements = self.driver.find_elements(By.XPATH, selector)
+                    else:
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+
+                    self.logger.info(f"Found {len(elements)} elements matching {selector}")
+                    for element in elements:
+                        self.logger.info(f"Element text: {element.text}")
+                        self.logger.info(f"Element visible: {element.is_displayed()}")
+                        self.logger.info(f"Element HTML: {element.get_attribute('outerHTML')}")
+                except Exception as e:
+                    self.logger.error(f"Error checking selector {selector}: {e}")
+
+            return False
+        except Exception as e:
+            self.logger.error(f"Error in wait_for_login_button: {e}")
+            return False
     def save_page_source_and_screenshot(self):
         """保存页面源码和截图用于调试"""
         timestamp = int(time.time())
@@ -283,7 +316,8 @@ class AutomationWorker:
         self.logger.info("开始登录流程")
         if self.close_dialog():
             self.logger.info("成功关闭初始弹窗")
-
+        # Add debug check here
+        self.wait_for_login_button()
         sign_in_locators = [
             (By.XPATH, "//div[contains(., 'Sign in') and contains(@class, 'baseFontColor left')]"),
             (By.CSS_SELECTOR, ".baseFontColor.left"),
